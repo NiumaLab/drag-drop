@@ -19,7 +19,8 @@
         top: widget.pos.y + 'px',
         position: 'absolute',
       }" v-for="widget in widgets" :key="widget.id" @mounted="handleWidgetMounted($event, widget)"
-        @move="handleWidgetMove($event, widget)" @moveend="handleWidgetMoveEnd(widget)">
+        @move="handleWidgetMove($event, widget)" @moveEnd="handleWidgetMoveEnd(widget)">
+        <div style="position: absolute;">{{ widget.id }}</div>
         <component :is="materials.get(widget.materialId)" />
       </MoveWrapper>
 
@@ -48,8 +49,8 @@ interface Widget {
   id: number;
   materialId: string;
   pos: {
-    x: number;
-    y: number;
+    x: number;  // left
+    y: number;  // top
   };
   el: HTMLElement | null;
 }
@@ -77,9 +78,10 @@ const yoris = ['left', 'ycenter', 'right'] as const
 type Oris = typeof xoris[number] | typeof yoris[number]
 interface LineInfo {
   ori: Oris  // 参照source
-  top?: number
-  left?: number
-  offset: number
+  top?: number  // 水平线位置
+  left?: number // 垂直线位置
+  offset: number  // source距离target偏移
+  sourcePos: number // source磁吸位置
 }
 type ToDisplayLines = Record<Oris, LineInfo>
 
@@ -134,24 +136,29 @@ function handleWidgetMounted(el: HTMLElement, widget: Widget) {
 const horizontalLinesStyle = ref<HorizontalLine[]>([])
 const verticalLinesStyle = ref<VerticalLine[]>([])
 
-async function handleWidgetMove(e: { x: number, y: number }, widget: Widget) {
-  updateWidgetPos(widget, e.x, e.y)
-  await nextTick()
-  setLines(widget)
-}
-
-function updateWidgetPos(widget: Widget, x: number, y: number) {
-  widget.pos.x = x;
-  widget.pos.y = y;
-}
-
-function setLines(widget: Widget) {
+async function handleWidgetMove(e: { newX: number, newY: number, isX: boolean, isY: boolean }, widget: Widget) {
+  updateWidgetPos(widget, e.newX, e.newY)
   const otherWidget = widgets.value.filter(w => w.id !== widget.id)
   if (!otherWidget.length) {
     return
   }
+  await nextTick()
+  const [newY, newX] = setLines(widget, otherWidget)
+  updateWidgetPos(widget, newX, newY)
+}
 
-  const [h, v] = getLines(widget, otherWidget)
+function updateWidgetPos(widget: Widget, x?: number, y?: number) {
+  if (typeof x === 'number') {
+    widget.pos.x = x;
+  }
+  if (typeof y === 'number') {
+    widget.pos.y = y;
+  }
+}
+
+function setLines(source: Widget, others: Widget[]) {
+  const [h, v] = getLines(source, others)
+
   horizontalLinesStyle.value = objToArr<LineInfo, HorizontalLine>(h, (line) => {
     return {
       top: line.top! + 'px',
@@ -164,6 +171,8 @@ function setLines(widget: Widget) {
       display: 'block'
     }
   })
+
+  return [Object.values(h)[0]?.sourcePos, Object.values(v)[0]?.sourcePos]
 }
 
 function handleWidgetMoveEnd(widget: Widget) {
@@ -201,7 +210,7 @@ function getLines(source: Widget, others: Widget[]) {
     })
 
     return [horizontalLines, verticalLines] as [ToDisplayLines, ToDisplayLines]
-  }, [[], []] as unknown as [ToDisplayLines, ToDisplayLines])
+  }, [{}, {}] as unknown as [ToDisplayLines, ToDisplayLines])
 }
 
 /**
@@ -230,8 +239,18 @@ function getSingleWidgetLines(sourceRect: DOMRect, targetRect: DOMRect) {
         const sourceLinePos = so.includes('center') ? getCenter(sourceRect[pos1], sourceRect[pos2]) : sourceRect[so as Exclude<Oris, 'xcenter' | 'ycenter'>]
         const offset = Math.abs(targetLinePos - sourceLinePos)
         if (offset <= lineThreshold) {
+          const linePos = targetLinePos - containerOffset
+          const sourcePosOffsetOrisMap: Record<Oris, number> = {
+            top: 0,
+            xcenter: sourceRect.height / 2,
+            bottom: sourceRect.height,
+            left: 0,
+            ycenter: sourceRect.width / 2,
+            right: sourceRect.width
+          }
+          const sourcePos = linePos - sourcePosOffsetOrisMap[so]
           toDisplayLines[so] = {
-            ori: so, [pos1]: targetLinePos - containerOffset, offset
+            ori: so, [pos1]: linePos, offset, sourcePos
           }
         }
       })

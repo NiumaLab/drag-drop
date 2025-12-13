@@ -11,8 +11,8 @@ const wrapperRef = useTemplateRef('wrapper');
 
 const emit = defineEmits<{
   (e: 'mounted', el: HTMLElement): void;
-  (e: 'move', data: { el: HTMLElement, x: number, y: number }): void;
-  (e: 'moveend'): void;
+  (e: 'move', data: { el: HTMLElement, newX: number, newY: number, isX: boolean, isY: boolean }): void;
+  (e: 'moveEnd'): void;
 }>();
 
 onMounted(() => {
@@ -53,10 +53,16 @@ function handleMouseMove(e: MouseEvent) {
   const deltaX = e.clientX - startX;
   const deltaY = e.clientY - startY;
 
-  const newX = initialLeft + deltaX;
-  const newY = initialTop + deltaY;
+  startX = e.clientX;
+  startY = e.clientY;
 
-  emit('move', {el: e.target as HTMLDivElement, x: newX, y: newY });
+  const isX = deltaX >= 0
+  const isY = deltaY >= 0
+
+  initialLeft = initialLeft + deltaX;
+  initialTop = initialTop + deltaY;
+
+  emit('move', { el: e.target as HTMLDivElement, newX: initialLeft, newY: initialTop, isX, isY });
 }
 
 function handleMouseUp() {
@@ -64,7 +70,7 @@ function handleMouseUp() {
     isDragging = false;
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
-    emit('moveend');
+    emit('moveEnd');
   }
 }
 
