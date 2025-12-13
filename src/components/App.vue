@@ -12,7 +12,8 @@
     </section>
 
     <!-- @dragover.prevent 才能触发drop事件 -->
-    <main class="middle" ref="middleContainer" @dragover.prevent @drop="handleDrop">
+    <main class="middle" ref="middleContainer" @dragover.prevent @dropEnter="handleDropEnter"
+      @dropLeave="handleDropLeave" @drop="handleDrop">
       <MoveWrapper :style="{
         left: widget.pos.x + 'px',
         top: widget.pos.y + 'px',
@@ -38,16 +39,17 @@
 </template>
 
 <script lang="ts" setup>
-import { nextTick, ref, useTemplateRef } from 'vue';
-import Box2 from './components/Box2.vue';
+import { markRaw, nextTick, ref, useTemplateRef } from 'vue';
+import BoxComp from './components/Box1.vue';
 import MoveWrapper from './components/MoveWrapper.vue';
 import { getUniqueId, objToArr } from '@/utils';
 import { getCenter } from '@/utils/line';
 import type { HorizontalLine, MoveData, VerticalLine, Widget } from '@/types';
 import { Material } from './material';
-import { config } from './config';
 
 const middleContainerRef = useTemplateRef<HTMLDivElement>('middleContainer')
+
+const lineThreshold = 10 // 磁吸阈值
 
 const xoris = ['bottom', 'xCenter', 'top'] as const
 const yoris = ['left', 'yCenter', 'right'] as const
@@ -64,7 +66,7 @@ type ToDisplayLines = Record<Oris, LineInfo>
 
 const materials = new Material()
 const initialMaterialId = getUniqueId()
-materials.register(initialMaterialId, Box2)
+materials.register(initialMaterialId, markRaw(BoxComp))
 
 const widgets = ref<Widget[]>([])
 let id = 0
@@ -96,6 +98,12 @@ function handleDrop(e: DragEvent) {
     pos: { x, y },
     el: null,
   })
+}
+
+function handleDropLeave(e: DragEvent) {
+}
+
+function handleDropEnter(e: DragEvent) {
 }
 
 function handleWidgetMounted(el: HTMLElement, widget: Widget) {
@@ -218,7 +226,7 @@ function getSingleWidgetLines(sourceRect: DOMRect, targetRect: DOMRect) {
         const sourceLinePos = so.includes('Center') ? getCenter(sourceRect[pos1], sourceRect[pos2]) : sourceRect[so as Exclude<Oris, 'xCenter' | 'yCenter'>]
         const offset = targetLinePos - sourceLinePos
         const absOffset = Math.abs(offset)
-        if (absOffset <= config.lineThreshold) {
+        if (absOffset <= lineThreshold) {
           const linePos = targetLinePos - containerOffset
           const sourcePosOffsetOrisMap: Record<Oris, number> = {
             top: 0,
@@ -270,9 +278,6 @@ header .logo {
 }
 
 .left {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
   padding: 10px;
   border-right: 1px solid var(--border-color);
 }

@@ -5,13 +5,14 @@
 </template>
 
 <script lang="ts" setup>
+import type { MoveData } from '@/types';
 import { onMounted, onUnmounted, useTemplateRef } from 'vue';
 
 const wrapperRef = useTemplateRef('wrapper');
 
 const emit = defineEmits<{
   (e: 'mounted', el: HTMLElement): void;
-  (e: 'move', data: { el: HTMLElement, newX: number, newY: number, isX: boolean, isY: boolean }): void;
+  (e: 'move', data: MoveData): void;
   (e: 'moveEnd'): void;
 }>();
 
@@ -20,10 +21,11 @@ onMounted(() => {
 })
 
 let isDragging = false;
-let startX = 0;
-let startY = 0;
-let initialLeft = 0;
-let initialTop = 0;
+let startX: number;
+let startY: number;
+let initialLeft: number;
+let initialTop: number;
+let rafId: number | null = null;
 
 function handleMouseDown(e: MouseEvent) {
   e.preventDefault();
@@ -50,19 +52,24 @@ function handleMouseMove(e: MouseEvent) {
 
   e.preventDefault();
 
-  const deltaX = e.clientX - startX;
-  const deltaY = e.clientY - startY;
+  // 使用 requestAnimationFrame 节流，确保与浏览器刷新率同步
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId);
+  }
 
-  startX = e.clientX;
-  startY = e.clientY;
+  rafId = requestAnimationFrame(() => {
+    if (!isDragging) return;
+    const deltaX = e.clientX - startX;
+    const deltaY = e.clientY - startY;
 
-  const isX = deltaX >= 0
-  const isY = deltaY >= 0
+    startX = e.clientX;
+    startY = e.clientY;
 
-  initialLeft = initialLeft + deltaX;
-  initialTop = initialTop + deltaY;
+    initialLeft = initialLeft + deltaX;
+    initialTop = initialTop + deltaY;
 
-  emit('move', { el: e.target as HTMLDivElement, newX: initialLeft, newY: initialTop, isX, isY });
+    emit('move', { el: wrapperRef.value!, newX: initialLeft, newY: initialTop, deltaX, deltaY });
+  });
 }
 
 function handleMouseUp() {
