@@ -38,30 +38,20 @@
 </template>
 
 <script lang="ts" setup>
-import { nextTick, ref, useTemplateRef } from 'vue';
+import { nextTick, onMounted, ref, useTemplateRef } from 'vue';
 import Box2 from './components/Box2.vue';
 import MoveWrapper from './components/MoveWrapper.vue';
 import { getUniqueId, objToArr } from '@/utils';
-import { getCenter } from '@/utils/line';
-import type { HorizontalLine, MoveData, VerticalLine, Widget } from '@/types';
-import { Material } from './material';
-import { config } from './config';
+import { LineHelper } from '@/utils/lineHelper';
+import type { HorizontalLine, LineInfo, MoveData, VerticalLine, Widget } from '@/types';
+import { Material } from '@/material';
 
 const middleContainerRef = useTemplateRef<HTMLDivElement>('middleContainer')
 
-const xoris = ['bottom', 'xCenter', 'top'] as const
-const yoris = ['left', 'yCenter', 'right'] as const
-type Oris = typeof xoris[number] | typeof yoris[number]
-interface LineInfo {
-  ori: Oris  // 参照source
-  top?: number  // 水平线位置
-  left?: number // 垂直线位置
-  offset: number  // source距离target偏移
-  absOffset: number // source距离target偏移 绝对值
-  sourcePos: number // source磁吸位置
-}
-type ToDisplayLines = Record<Oris, LineInfo>
 
+/**
+ * init material
+ */
 const materials = new Material()
 const initialMaterialId = getUniqueId()
 materials.register(initialMaterialId, Box2)
@@ -78,6 +68,16 @@ if (initialMaterialId) {
   })
 }
 
+/**
+ * init lineHelper
+ */
+const lineHelper = new LineHelper(middleContainerRef.value!, {
+  lineThreshold: 5,
+})
+onMounted(() => {
+  lineHelper.setContainer(middleContainerRef.value!)
+})
+
 function handleDragStart(e: DragEvent, materialId: string) {
   e.dataTransfer!.effectAllowed = "copy";
   e.dataTransfer!.setData('materialId', materialId)
@@ -85,8 +85,11 @@ function handleDragStart(e: DragEvent, materialId: string) {
 
 function handleDrop(e: DragEvent) {
   const materialId = e.dataTransfer!.getData('materialId')
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  if (!materialId) {
+    return
+  }
 
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
   const x = e.clientX - rect.left
   const y = e.clientY - rect.top
 
@@ -106,28 +109,22 @@ const horizontalLinesStyle = ref<HorizontalLine[]>([])
 const verticalLinesStyle = ref<VerticalLine[]>([])
 
 async function handleWidgetMove(e: MoveData, widget: Widget) {
-  updateWidgetPos(widget, e.newX, e.newY)
+  lineHelper.updateWidgetPos(widget, e.newX, e.newY)
   const otherWidget = widgets.value.filter(w => w.id !== widget.id)
   if (!otherWidget.length) {
     return
   }
   await nextTick()
   const [newY, newX] = setLines(widget, otherWidget, e)
-  updateWidgetPos(widget, newX, newY)
+  lineHelper.updateWidgetPos(widget, newX, newY)
 }
 
-function updateWidgetPos(widget: Widget, x?: number, y?: number) {
-
-  if (typeof x === 'number') {
-    widget.pos.x = x;
-  }
-  if (typeof y === 'number') {
-    widget.pos.y = y;
-  }
-}
-
+/**
+ * @description 计算并设置辅助线，并返回磁吸后的新位置
+ * @returns [newY, newX] 磁吸后的新位置
+ */
 function setLines(source: Widget, others: Widget[], extra: MoveData) {
-  const [h, v] = getLines(source, others)
+  const [h, v] = lineHelper.getLines(source, others)
 
   horizontalLinesStyle.value = objToArr<LineInfo, HorizontalLine>(h, (line) => {
     return {
@@ -142,108 +139,21 @@ function setLines(source: Widget, others: Widget[], extra: MoveData) {
     }
   })
 
-  return [getMinOffsetSourcePos(h, extra.deltaY), getMinOffsetSourcePos(v, extra.deltaX)]
+  return [lineHelper.getMinOffsetSourcePos(h, extra.deltaY), lineHelper.getMinOffsetSourcePos(v, extra.deltaX)]
 }
 
-function getMinOffsetSourcePos(lines: ToDisplayLines, delta: number) {
-  // const lineInfos = Object.values(lines).filter(l => delta * l.offset > 0)
-  const lineInfos = Object.values(lines)
-  if (!lineInfos.length) {
-    return
-  }
-  return lineInfos.reduce((min, line) => line.absOffset < min.absOffset ? line : min
-  ).sourcePos
-}
-
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function handleWidgetMoveEnd(widget: Widget) {
   horizontalLinesStyle.value.forEach(line => line.display = 'none')
   verticalLinesStyle.value.forEach(line => line.display = 'none')
 }
 
-/**
- * @description 获取辅助线
- * 1. 使用防抖（如100ms内只计算一次）减少高频计算，但可能影响实时性。
- * 2. 为拖拽中的元素建立邻近区域搜索，只计算一定范围内的元素。
- * 3. 实现边界框（Bounding Box）缓存，避免重复计算元素几何信息。
- */
-function getLines(source: Widget, others: Widget[]) {
-  return others.reduce((acc, other) => {
-    const [horizontalLines, verticalLines] = acc;
-    const lines = getSingleWidgetLines(source.el!.getBoundingClientRect(), other.el!.getBoundingClientRect());
-
-    (Object.keys(lines) as Oris[]).forEach(ori => {
-      if (xoris.includes(ori as typeof xoris[number])) {
-        const curLine = lines[ori]
-        const accLine = horizontalLines[ori]
-        if (!accLine || curLine.absOffset < accLine.absOffset) {
-          horizontalLines[ori] = curLine
-        }
-      }
-      if (yoris.includes(ori as typeof yoris[number])) {
-        const curLine = lines[ori]
-        const accLine = verticalLines[ori]
-        if (!accLine || curLine.absOffset < accLine.absOffset) {
-          verticalLines[ori] = curLine
-        }
-      }
-    })
-
-    return [horizontalLines, verticalLines] as [ToDisplayLines, ToDisplayLines]
-  }, [{}, {}] as unknown as [ToDisplayLines, ToDisplayLines])
-}
-
-/**
- * @description 获取单个widget的辅助线
- * @param sourceRect 移动中的widget
- * @param targetRect 参照的静止的widget
- */
-function getSingleWidgetLines(sourceRect: DOMRect, targetRect: DOMRect) {
-  const { left: containerLeft, top: containerTop } = middleContainerRef.value!.getBoundingClientRect()
-  const toDisplayLines = {} as ToDisplayLines
-  const meta = [{
-    pos1: 'top',
-    pos2: 'bottom',
-    oris: xoris,
-    containerOffset: containerTop
-  }, {
-    pos1: 'left',
-    pos2: 'right',
-    oris: yoris,
-    containerOffset: containerLeft
-  }] as const
-  meta.forEach(({ pos1, pos2, oris, containerOffset }) => {
-    oris.forEach(to => {
-      const targetLinePos = to.includes('Center') ? getCenter(targetRect[pos1], targetRect[pos2]) : targetRect[to as Exclude<Oris, 'xCenter' | 'yCenter'>]
-      oris.forEach(so => {
-        const sourceLinePos = so.includes('Center') ? getCenter(sourceRect[pos1], sourceRect[pos2]) : sourceRect[so as Exclude<Oris, 'xCenter' | 'yCenter'>]
-        const offset = targetLinePos - sourceLinePos
-        const absOffset = Math.abs(offset)
-        if (absOffset <= config.lineThreshold) {
-          const linePos = targetLinePos - containerOffset
-          const sourcePosOffsetOrisMap: Record<Oris, number> = {
-            top: 0,
-            xCenter: sourceRect.height / 2,
-            bottom: sourceRect.height,
-            left: 0,
-            yCenter: sourceRect.width / 2,
-            right: sourceRect.width
-          }
-          const sourcePos = linePos - sourcePosOffsetOrisMap[so]
-          toDisplayLines[so] = {
-            ori: so, [pos1]: linePos, offset, absOffset, sourcePos
-          }
-        }
-      })
-    })
-  })
-  return toDisplayLines
-}
 
 </script>
 
 <style>
 :root {
-  --header-height: 64px;
+  --header-height: 55px;
   --border-color: #bdbaba;
 }
 </style>

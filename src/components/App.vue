@@ -43,7 +43,7 @@ import { markRaw, nextTick, ref, useTemplateRef } from 'vue';
 import BoxComp from './components/Box1.vue';
 import MoveWrapper from './components/MoveWrapper.vue';
 import { getUniqueId, objToArr } from '@/utils';
-import { getCenter } from '@/utils/line';
+import { getCenter } from '@/utils/lineHelper';
 import type { HorizontalLine, MoveData, VerticalLine, Widget } from '@/types';
 import { Material } from './material';
 

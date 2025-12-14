@@ -1,3 +1,3 @@
-export const config = {
-  lineThreshold: 5, // 磁吸阈值
+export interface Config {
+  lineThreshold: number // 磁吸阈值
 }
