@@ -11,15 +11,31 @@ export interface LineInfo {
 }
 export type ToDisplayLines = Record<Oris, LineInfo>
 
-export interface Widget {
+export interface BaseEl {
   id: number
-  materialId: string
   pos: {
     x: number // left
     y: number // top
+    relativeX?: number
+    relativeY?: number
+    width?: number
+    height?: number
   }
-  el: HTMLElement | null
+  wrapperEl?: HTMLElement
+  wrapperElRectCache?: DOMRect
 }
+
+export interface Widget extends BaseEl {
+  materialId: string
+}
+
+export interface Group extends BaseEl {
+  // widgets: Array<Widget | Group>
+  // widgets: Array<MoveableEl>
+  widgets: Array<Widget>
+}
+
+export type MoveableEl = Widget | Group
 
 export interface Line {
   display: 'none' | 'block'

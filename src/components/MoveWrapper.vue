@@ -12,7 +12,8 @@ const wrapperRef = useTemplateRef('wrapper');
 
 const emit = defineEmits<{
   (e: 'mounted', el: HTMLElement): void;
-  (e: 'move', data: MoveData): void;
+  (e: 'focus'): void;
+  (e: 'moving', data: MoveData): void;
   (e: 'moveEnd'): void;
 }>();
 
@@ -28,8 +29,14 @@ let initialTop: number;
 let rafId: number | null = null;
 
 function handleMouseDown(e: MouseEvent) {
+  if (e.button !== 0) return;
+  emit('focus')
   e.preventDefault();
   e.stopPropagation();
+
+  // if (!isMoveEdge(wrapperRef.value!, e)) {
+  //   return
+  // }
 
   isDragging = true;
   const element = e.currentTarget as HTMLElement;
@@ -47,8 +54,24 @@ function handleMouseDown(e: MouseEvent) {
   document.addEventListener('mouseup', handleMouseUp);
 }
 
+function isMoveEdge(el: HTMLElement, e: MouseEvent): boolean {
+  const rect = el.getBoundingClientRect();
+  const threshold = 8; // px from edge
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const nearLeft = x <= threshold;
+  const nearRight = x >= rect.width - threshold;
+  const nearTop = y <= threshold;
+  const nearBottom = y >= rect.height - threshold;
+
+  // only start dragging when mouse is near any edge
+  return nearLeft || nearRight || nearTop || nearBottom
+}
+
 function handleMouseMove(e: MouseEvent) {
   if (!isDragging) return;
+  // add focused class when pressed
+  wrapperRef.value!.classList.add('moving');
 
   e.preventDefault();
 
@@ -68,11 +91,12 @@ function handleMouseMove(e: MouseEvent) {
     initialLeft = initialLeft + deltaX;
     initialTop = initialTop + deltaY;
 
-    emit('move', { el: wrapperRef.value!, newX: initialLeft, newY: initialTop, deltaX, deltaY });
+    emit('moving', { el: wrapperRef.value!, newX: initialLeft, newY: initialTop, deltaX, deltaY });
   });
 }
 
 function handleMouseUp() {
+  wrapperRef.value?.classList.remove('moving');
   if (isDragging) {
     isDragging = false;
     document.removeEventListener('mousemove', handleMouseMove);
@@ -82,14 +106,25 @@ function handleMouseUp() {
 }
 
 onUnmounted(() => {
+  console.log('onUnmounted');
+
   document.removeEventListener('mousemove', handleMouseMove);
   document.removeEventListener('mouseup', handleMouseUp);
+  wrapperRef.value?.classList.remove('focused');
 });
 </script>
 
 <style scoped>
 .move-wrapper {
-  cursor: move;
   user-select: none;
+  border: 1px solid #eee;
+}
+
+.move-wrapper.moving {
+  /* border: 1px solid #000; */
+}
+
+.cursor-move {
+  cursor: move;
 }
 </style>

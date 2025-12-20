@@ -1,7 +1,9 @@
-import type { Config } from '@/config'
-import { xoris, yoris, type Oris, type ToDisplayLines, type Widget } from '@/types'
+import type { Config } from '@/types/config'
+import { xoris, yoris, type MoveableEl, type Oris, type ToDisplayLines } from '@/types'
 
 export class LineHelper {
+  private containerRectCache: DOMRect | null = null
+
   constructor(
     private container: HTMLElement,
     private config: Config,
@@ -14,6 +16,7 @@ export class LineHelper {
 
   public setContainer(container: HTMLElement) {
     this.container = container
+    this.containerRectCache = container.getBoundingClientRect()
   }
 
   public setConfig(config: Config) {
@@ -22,18 +25,18 @@ export class LineHelper {
 
   /**
    * @description 获取辅助线
-   * 1. 使用防抖（如100ms内只计算一次）减少高频计算，但可能影响实时性。
-   * 2. 为拖拽中的元素建立邻近区域搜索，只计算一定范围内的元素。
-   * 3. 实现边界框（Bounding Box）缓存，避免重复计算元素几何信息。
-   * 4. getBoundingClientRect触发回流(reflow)，可考虑使用缓存的位置信息。
+   * 1. TODO: 使用防抖（如100ms内只计算一次）减少高频计算，但可能影响实时性。
+   * 2. TODO: 为拖拽中的元素建立邻近区域搜索，只计算一定范围内的元素。
+   * 3. TODO: 实现边界框（Bounding Box）缓存，避免重复计算元素几何信息。
+   * 4. TODO: getBoundingClientRect触发回流(reflow)，可考虑使用缓存的位置信息。
    */
-  public getLines(source: Widget, others: Widget[]) {
+  public getLines(source: MoveableEl, others: MoveableEl[]) {
     return others.reduce(
       (acc, other) => {
         const [horizontalLines, verticalLines] = acc
-        const lines = this.getSingleWidgetLines(
-          source.el!.getBoundingClientRect(),
-          other.el!.getBoundingClientRect(),
+        const lines = this.getSingleMoveableElLines(
+          source.wrapperEl!.getBoundingClientRect(),
+          other.wrapperElRectCache!,
         )
 
         ;(Object.keys(lines) as Oris[]).forEach((ori) => {
@@ -60,12 +63,12 @@ export class LineHelper {
   }
 
   /**
-   * @description 获取单个widget的辅助线
-   * @param sourceRect 移动中的widget
-   * @param targetRect 参照的静止的widget
+   * @description 获取单个moveableEl的辅助线
+   * @param sourceRect 移动中的moveableEl
+   * @param targetRect 参照的静止的moveableEl
    */
-  getSingleWidgetLines(sourceRect: DOMRect, targetRect: DOMRect) {
-    const { left: containerLeft, top: containerTop } = this.container.getBoundingClientRect()
+  getSingleMoveableElLines(sourceRect: DOMRect, targetRect: DOMRect) {
+    const { left: containerLeft, top: containerTop } = this.containerRectCache!
     const toDisplayLines = {} as ToDisplayLines
     const meta = [
       {
@@ -117,12 +120,12 @@ export class LineHelper {
     return toDisplayLines
   }
 
-  public updateWidgetPos(widget: Widget, x?: number, y?: number) {
+  public updateMoveableElPos(mEl: MoveableEl, x?: number, y?: number) {
     if (typeof x === 'number') {
-      widget.pos.x = x
+      mEl.pos.x = x
     }
     if (typeof y === 'number') {
-      widget.pos.y = y
+      mEl.pos.y = y
     }
   }
 
