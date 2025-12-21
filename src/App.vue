@@ -13,7 +13,7 @@
         <component :is="material" />
       </div>
     </section>
-z
+
     <!-- @dragover.prevent 才能触发drop事件 -->
     <main class="middle"
       ref="middleContainer"
@@ -58,6 +58,7 @@ z
 
       <div
         class="selection-rect"
+        @contextmenu.prevent="onSelectionContextMenu"
         :style="{
         left: selectionStyle.left + 'px',
         top: selectionStyle.top + 'px',
@@ -65,6 +66,7 @@ z
         height: selectionStyle.height + 'px',
         display: selectionStyle.display
       }"></div>
+      <ContextMenu ref="contextMenuRef" />
     </main>
 
     <section class="right">
@@ -88,6 +90,7 @@ import type { HorizontalLine, LineInfo, MoveableEl, MoveData, VerticalLine, Widg
 import { MaterialHelper } from '@/utils/material';
 import Box2 from './components/Box2.vue';
 import MoveWrapper from './components/MoveWrapper.vue';
+import ContextMenu from './components/ContextMenu.vue';
 
 const middleContainerRef = useTemplateRef<HTMLDivElement>('middleContainer')
 
@@ -156,32 +159,37 @@ function handleMoveableElFocus(widget: MoveableEl) {
 }
 
 // Selection (marquee) state and handlers (refactor: store style directly)
-const isSelecting = ref(false)
+let isSelecting = false
 const selectStart = ref({ x: 0, y: 0 })
-
-const selectionStyle = ref({ left: 0, top: 0, width: 0, height: 0, display: 'none' })
+const initialSelection = { left: 0, top: 0, width: 0, height: 0, display: 'none' }
+const selectionStyle = ref(initialSelection)
+const contextMenuRef = ref<InstanceType<typeof ContextMenu>>()
+const selectionCandidates = ref<{ selected: Widget[]; toDelIndexes: number[] } | null>(null)
 
 function handleSelectionMouseDown(e: MouseEvent) {
   if (e.button !== 0) return
   const container = middleContainerRef.value
   if (!container) return
   const rect = container.getBoundingClientRect()
-  isSelecting.value = true
+  isSelecting = true
   selectStart.value.x = e.clientX - rect.left
   selectStart.value.y = e.clientY - rect.top
 
-  selectionStyle.value.left = selectStart.value.x
-  selectionStyle.value.top = selectStart.value.y
-  selectionStyle.value.width = 0
-  selectionStyle.value.height = 0
-  selectionStyle.value.display = 'block'
+  selectionStyle.value = {
+    ...selectionStyle.value,
+    left: selectStart.value.x,
+    top: selectStart.value.y,
+    width: 0,
+    height: 0,
+    display: 'block'
+  }
 
   window.addEventListener('mousemove', onSelectionMouseMove)
   window.addEventListener('mouseup', onSelectionMouseUp, { once: true })
 }
 
 function onSelectionMouseMove(e: MouseEvent) {
-  if (!isSelecting.value) return
+  if (!isSelecting) return
   const container = middleContainerRef.value
   if (!container) return
   const rect = container.getBoundingClientRect()
@@ -193,23 +201,27 @@ function onSelectionMouseMove(e: MouseEvent) {
   const width = Math.abs(curX - selectStart.value.x)
   const height = Math.abs(curY - selectStart.value.y)
 
-  selectionStyle.value.left = left
-  selectionStyle.value.top = top
-  selectionStyle.value.width = width
-  selectionStyle.value.height = height
+  selectionStyle.value = {
+    ...selectionStyle.value,
+    left,
+    top,
+    width,
+    height
+  }
 }
 
 function onSelectionMouseUp() {
-  if (!isSelecting.value) return
-  isSelecting.value = false
+  if (!isSelecting) return
+  isSelecting = false
   window.removeEventListener('mousemove', onSelectionMouseMove)
 
   // compute selection bounds from selectionStyle
+  const { left, top, width, height } = selectionStyle.value
   const sel = {
-    left: selectionStyle.value.left,
-    top: selectionStyle.value.top,
-    right: selectionStyle.value.left + selectionStyle.value.width,
-    bottom: selectionStyle.value.top + selectionStyle.value.height,
+    left,
+    top,
+    right: left + width,
+    bottom: top + height,
   }
 
   const container = middleContainerRef.value
@@ -219,36 +231,49 @@ function onSelectionMouseUp() {
   const selected: Widget[] = []
   const toDelIndexes: number[] = []
   moveableEls.value.forEach((w, i) => {
-    const { wrapperElRectCache, id, materialId, pos } = w as Widget
+    const { wrapperElRectCache, } = w as Widget
     const left = wrapperElRectCache!.left - containerRect.left
     const top = wrapperElRectCache!.top - containerRect.top
     const right = left + wrapperElRectCache!.width
     const bottom = top + wrapperElRectCache!.height
 
     if (sel.left <= left && sel.top <= top && sel.right >= right && sel.bottom >= bottom) {
-      selected.push({
-        id,
-        materialId,
-        pos,
-      })
+      selected.push(w as Widget)
       toDelIndexes.push(i)
     }
   })
+
+  focusedEls.value = selected
+  if (!selected.length) {
+    return resetSelection()
+  }
+
+  // keep the selected candidates so the context menu can operate on them
+  selectionCandidates.value = { selected, toDelIndexes }
+}
+
+function resetSelection() {
+  selectionStyle.value = initialSelection
+  selectionCandidates.value = null
+}
+
+async function merge(toDelIndexes: number[], selected: Widget[]) {
   // remove selected from moveableEls
   for (let i = toDelIndexes.length - 1; i >= 0; i--) {
     moveableEls.value.splice(toDelIndexes[i]!, 1)
   }
 
-  focusedEls.value = selected
-
+  // get merged group info
   const x = Math.min(...selected.map(s => s.pos.x))
   const y = Math.min(...selected.map(s => s.pos.y))
-  const width = Math.max(...selected.map(s => s.pos.x + s.pos.width! + (s.wrapperElRectCache?.width || 0))) - x
-  const height = Math.max(...selected.map(s => s.pos.y + s.pos.height! + (s.wrapperElRectCache?.height || 0))) - y
+  const width = Math.max(...selected.map(s => s.pos.x + s.pos.width!)) - x
+  const height = Math.max(...selected.map(s => s.pos.y + s.pos.height!)) - y
   selected.forEach(s => {
     s.pos.relativeX = s.pos.x - x
     s.pos.relativeY = s.pos.y - y
   })
+
+  // add new group to moveableEls
   moveableEls.value.push({
     id: id++,
     pos: {
@@ -260,11 +285,19 @@ function onSelectionMouseUp() {
     widgets: selected
   })
 
-  selectionStyle.value.display = 'none'
-  selectionStyle.value.left = 0
-  selectionStyle.value.top = 0
-  selectionStyle.value.width = 0
-  selectionStyle.value.height = 0
+  resetSelection()
+}
+
+async function onSelectionContextMenu(e: MouseEvent) {
+  // only open if we have candidates
+  if (!selectionCandidates.value) return
+  const needMerge = await contextMenuRef.value!.open(e.clientX, e.clientY)
+  if (needMerge) {
+    console.log(selectionCandidates.value);
+
+    const { selected, toDelIndexes } = selectionCandidates.value
+    merge(toDelIndexes, selected)
+  }
 }
 
 const horizontalLinesStyle = ref<HorizontalLine[]>([])
@@ -372,7 +405,6 @@ header .logo {
   position: absolute;
   border: 1px dashed rgba(0, 120, 212, 0.9);
   background: rgba(0, 120, 212, 0.08);
-  pointer-events: none;
   z-index: 9999;
 }
 
