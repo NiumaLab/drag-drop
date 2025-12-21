@@ -1,5 +1,9 @@
 <template>
-  <div ref="wrapper" class="move-wrapper" @mousedown="handleMouseDown">
+  <div
+    class="move-wrapper"
+    ref="wrapper"
+    @mousedown="handleMouseDown"
+  >
     <slot></slot>
   </div>
 </template>
@@ -106,8 +110,6 @@ function handleMouseUp() {
 }
 
 onUnmounted(() => {
-  console.log('onUnmounted');
-
   document.removeEventListener('mousemove', handleMouseMove);
   document.removeEventListener('mouseup', handleMouseUp);
   wrapperRef.value?.classList.remove('focused');

@@ -5,30 +5,46 @@
   </header>
   <main class="container">
     <section class="left">
-      <div style="cursor: move;" v-for="([materialId, material]) in materials.store" :key="materialId" draggable="true"
+      <div
+        style="cursor: move;"
+        v-for="([materialId, material]) in materials.store" :key="materialId"
+        draggable="true"
         @dragstart="handleDragStart($event, materialId)">
         <component :is="material" />
       </div>
     </section>
-
+z
     <!-- @dragover.prevent 才能触发drop事件 -->
-    <main class="middle" ref="middleContainer" @dragover.prevent @drop="handleDrop"
-      @mousedown.self="handleSelectionMouseDown">
-      <MoveWrapper :class="{ focused: focusedEls.includes(mEl) }" :style="{
-        left: mEl.pos.x + 'px',
-        top: mEl.pos.y + 'px',
-        position: 'absolute',
-        width: (mEl.pos.width ? mEl.pos.width + 'px' : ''),
-        height: (mEl.pos.height ? mEl.pos.height + 'px' : ''),
-      }" v-for="mEl in moveableEls" :key="mEl.id" @mounted="handleMoveableElMounted($event, mEl)"
+    <main class="middle"
+      ref="middleContainer"
+      @dragover.prevent
+      @drop="handleDrop"
+      @mousedown.self="handleSelectionMouseDown"
+    >
+      <MoveWrapper
+        :class="{ focused: focusedEls.includes(mEl) }"
+        :style="{
+          left: mEl.pos.x + 'px',
+          top: mEl.pos.y + 'px',
+          position: 'absolute',
+          width: (mEl.pos.width ? mEl.pos.width + 'px' : ''),
+          height: (mEl.pos.height ? mEl.pos.height + 'px' : ''),
+        }"
+        v-for="mEl in moveableEls" :key="mEl.id"
+        @mounted="handleMoveableElMounted($event, mEl)"
         @focus="handleMoveableElFocus(mEl)" @moving="handleMoveableElMoving($event, mEl)"
-        @moveEnd="handleMoveableElMoveEnd(mEl)">
+        @moveEnd="handleMoveableElMoveEnd(mEl)"
+      >
         <template v-if="(mEl as Group).widgets">
-          <component :style="{
-            left: m.pos.relativeX + 'px',
-            top: m.pos.relativeY + 'px',
-            position: 'absolute',
-          }" v-for="m in (mEl as Group).widgets" :is="materials.get(m.materialId)" :key="m.id" />
+          <component
+            :style="{
+              left: m.pos.relativeX + 'px',
+              top: m.pos.relativeY + 'px',
+              position: 'absolute',
+            }"
+            v-for="m in (mEl as Group).widgets" :key="m.id"
+            :is="materials.get(m.materialId)"
+          />
         </template>
         <component v-if="(mEl as Widget).materialId" :is="materials.get((mEl as Widget).materialId)" />
       </MoveWrapper>
@@ -40,7 +56,9 @@
       <div class="line vertical" :style="verticalLinesStyle[1]"></div>
       <div class="line vertical" :style="verticalLinesStyle[2]"></div>
 
-      <div class="selection-rect" :style="{
+      <div
+        class="selection-rect"
+        :style="{
         left: selectionStyle.left + 'px',
         top: selectionStyle.top + 'px',
         width: selectionStyle.width + 'px',
@@ -52,8 +70,8 @@
     <section class="right">
       focusedEls
       <code>
-    <pre>{{ focusedEls }}</pre>
-  </code>
+        <pre>{{ focusedEls }}</pre>
+      </code>
       <!-- moveableEls
       <code>
         <pre>{{ moveableEls }}</pre>
@@ -241,9 +259,6 @@ function onSelectionMouseUp() {
     },
     widgets: selected
   })
-
-  console.log(moveableEls.value);
-
 
   selectionStyle.value.display = 'none'
   selectionStyle.value.left = 0
