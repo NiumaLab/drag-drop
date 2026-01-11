@@ -54,6 +54,7 @@ function handleMouseDown(e: MouseEvent) {
   document.addEventListener('mouseup', handleMouseUp)
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function isMoveEdge(el: HTMLElement, e: MouseEvent): boolean {
   const rect = el.getBoundingClientRect()
   const threshold = 8 // px from edge

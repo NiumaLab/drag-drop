@@ -106,7 +106,7 @@ import type {
   Group,
 } from '@/types'
 import { MaterialHelper } from '@/utils/material'
-import Box2 from './components/Box2.vue'
+import Box2 from './components/BoxTwo.vue'
 import MoveWrapper from './components/MoveWrapper.vue'
 import ContextMenu from './components/ContextMenu.vue'
 

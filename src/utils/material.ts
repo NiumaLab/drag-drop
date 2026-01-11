@@ -1,5 +1,5 @@
 import { markRaw, type Component } from 'vue'
-import Box1 from '@/components/Box1.vue'
+import Box1 from '@/components/BoxOne.vue'
 
 export class MaterialHelper {
   public store = new Map<string, Component>()
