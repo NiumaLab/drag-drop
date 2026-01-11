@@ -64,12 +64,21 @@ const style = computed(() => ({
   position: fixed;
   background: #fff;
   border: 1px solid #ccc;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   padding: 6px 0;
   border-radius: 4px;
   font-size: 12px;
 }
-.context-menu ul { list-style: none; margin: 0; padding: 0; }
-.context-menu li { padding: 6px 12px; cursor: pointer; }
-.context-menu li:hover { background: #f5f5f5; }
+.context-menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.context-menu li {
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.context-menu li:hover {
+  background: #f5f5f5;
+}
 </style>

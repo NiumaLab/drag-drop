@@ -1,21 +1,24 @@
 <template>
   <header>
-    <img class="logo" src="/drag_drop.svg" alt="">
+    <img class="logo" src="/drag_drop.svg" alt="" />
     <span>DRAG & DROP</span>
   </header>
   <main class="container">
     <section class="left">
       <div
-        style="cursor: move;"
-        v-for="([materialId, material]) in materials.store" :key="materialId"
+        style="cursor: move"
+        v-for="[materialId, material] in materials.store"
+        :key="materialId"
         draggable="true"
-        @dragstart="handleDragStart($event, materialId)">
+        @dragstart="handleDragStart($event, materialId)"
+      >
         <component :is="material" />
       </div>
     </section>
 
     <!-- @dragover.prevent 才能触发drop事件 -->
-    <main class="middle"
+    <main
+      class="middle"
       ref="middleContainer"
       @dragover.prevent
       @drop="handleDrop"
@@ -27,12 +30,14 @@
           left: mEl.pos.x + 'px',
           top: mEl.pos.y + 'px',
           position: 'absolute',
-          width: (mEl.pos.width ? mEl.pos.width + 'px' : ''),
-          height: (mEl.pos.height ? mEl.pos.height + 'px' : ''),
+          width: mEl.pos.width ? mEl.pos.width + 'px' : '',
+          height: mEl.pos.height ? mEl.pos.height + 'px' : '',
         }"
-        v-for="mEl in moveableEls" :key="mEl.id"
+        v-for="mEl in moveableEls"
+        :key="mEl.id"
         @mounted="handleMoveableElMounted($event, mEl)"
-        @focus="handleMoveableElFocus(mEl)" @moving="handleMoveableElMoving($event, mEl)"
+        @focus="handleMoveableElFocus(mEl)"
+        @moving="handleMoveableElMoving($event, mEl)"
         @moveEnd="handleMoveableElMoveEnd(mEl)"
       >
         <template v-if="(mEl as Group).widgets">
@@ -42,11 +47,15 @@
               top: m.pos.relativeY + 'px',
               position: 'absolute',
             }"
-            v-for="m in (mEl as Group).widgets" :key="m.id"
+            v-for="m in (mEl as Group).widgets"
+            :key="m.id"
             :is="materials.get(m.materialId)"
           />
         </template>
-        <component v-if="(mEl as Widget).materialId" :is="materials.get((mEl as Widget).materialId)" />
+        <component
+          v-if="(mEl as Widget).materialId"
+          :is="materials.get((mEl as Widget).materialId)"
+        />
       </MoveWrapper>
 
       <div class="line horizontal" :style="horizontalLinesStyle[0]"></div>
@@ -60,12 +69,13 @@
         class="selection-rect"
         @contextmenu.prevent="onSelectionContextMenu"
         :style="{
-        left: selectionStyle.left + 'px',
-        top: selectionStyle.top + 'px',
-        width: selectionStyle.width + 'px',
-        height: selectionStyle.height + 'px',
-        display: selectionStyle.display
-      }"></div>
+          left: selectionStyle.left + 'px',
+          top: selectionStyle.top + 'px',
+          width: selectionStyle.width + 'px',
+          height: selectionStyle.height + 'px',
+          display: selectionStyle.display,
+        }"
+      ></div>
       <ContextMenu ref="contextMenuRef" />
     </main>
 
@@ -83,17 +93,24 @@
 </template>
 
 <script lang="ts" setup>
-import { nextTick, onMounted, ref, useTemplateRef } from 'vue';
-import { getUniqueId, objToArr } from '@/utils';
-import { LineHelper } from '@/utils/lineHelper';
-import type { HorizontalLine, LineInfo, MoveableEl, MoveData, VerticalLine, Widget, Group } from '@/types';
-import { MaterialHelper } from '@/utils/material';
-import Box2 from './components/Box2.vue';
-import MoveWrapper from './components/MoveWrapper.vue';
-import ContextMenu from './components/ContextMenu.vue';
+import { nextTick, onMounted, ref, useTemplateRef } from 'vue'
+import { getUniqueId, objToArr } from '@/utils'
+import { LineHelper } from '@/utils/lineHelper'
+import type {
+  HorizontalLine,
+  LineInfo,
+  MoveableEl,
+  MoveData,
+  VerticalLine,
+  Widget,
+  Group,
+} from '@/types'
+import { MaterialHelper } from '@/utils/material'
+import Box2 from './components/Box2.vue'
+import MoveWrapper from './components/MoveWrapper.vue'
+import ContextMenu from './components/ContextMenu.vue'
 
 const middleContainerRef = useTemplateRef<HTMLDivElement>('middleContainer')
-
 
 /**
  * init material
@@ -125,7 +142,7 @@ onMounted(() => {
 })
 
 function handleDragStart(e: DragEvent, materialId: string) {
-  e.dataTransfer!.effectAllowed = "copy";
+  e.dataTransfer!.effectAllowed = 'copy'
   e.dataTransfer!.setData('materialId', materialId)
 }
 
@@ -181,7 +198,7 @@ function handleSelectionMouseDown(e: MouseEvent) {
     top: selectStart.value.y,
     width: 0,
     height: 0,
-    display: 'block'
+    display: 'block',
   }
 
   window.addEventListener('mousemove', onSelectionMouseMove)
@@ -206,7 +223,7 @@ function onSelectionMouseMove(e: MouseEvent) {
     left,
     top,
     width,
-    height
+    height,
   }
 }
 
@@ -231,7 +248,7 @@ function onSelectionMouseUp() {
   const selected: Widget[] = []
   const toDelIndexes: number[] = []
   moveableEls.value.forEach((w, i) => {
-    const { wrapperElRectCache, } = w as Widget
+    const { wrapperElRectCache } = w as Widget
     const left = wrapperElRectCache!.left - containerRect.left
     const top = wrapperElRectCache!.top - containerRect.top
     const right = left + wrapperElRectCache!.width
@@ -264,11 +281,11 @@ async function merge(toDelIndexes: number[], selected: Widget[]) {
   }
 
   // get merged group info
-  const x = Math.min(...selected.map(s => s.pos.x))
-  const y = Math.min(...selected.map(s => s.pos.y))
-  const width = Math.max(...selected.map(s => s.pos.x + s.pos.width!)) - x
-  const height = Math.max(...selected.map(s => s.pos.y + s.pos.height!)) - y
-  selected.forEach(s => {
+  const x = Math.min(...selected.map((s) => s.pos.x))
+  const y = Math.min(...selected.map((s) => s.pos.y))
+  const width = Math.max(...selected.map((s) => s.pos.x + s.pos.width!)) - x
+  const height = Math.max(...selected.map((s) => s.pos.y + s.pos.height!)) - y
+  selected.forEach((s) => {
     s.pos.relativeX = s.pos.x - x
     s.pos.relativeY = s.pos.y - y
   })
@@ -280,9 +297,9 @@ async function merge(toDelIndexes: number[], selected: Widget[]) {
       x,
       y,
       width,
-      height
+      height,
     },
-    widgets: selected
+    widgets: selected,
   })
 
   resetSelection()
@@ -293,7 +310,7 @@ async function onSelectionContextMenu(e: MouseEvent) {
   if (!selectionCandidates.value) return
   const needMerge = await contextMenuRef.value!.open(e.clientX, e.clientY)
   if (needMerge) {
-    console.log(selectionCandidates.value);
+    console.log(selectionCandidates.value)
 
     const { selected, toDelIndexes } = selectionCandidates.value
     merge(toDelIndexes, selected)
@@ -305,7 +322,7 @@ const verticalLinesStyle = ref<VerticalLine[]>([])
 
 async function handleMoveableElMoving(e: MoveData, widget: MoveableEl) {
   lineHelper.updateMoveableElPos(widget, e.newX, e.newY)
-  const otherWidget = moveableEls.value.filter(w => w.id !== widget.id)
+  const otherWidget = moveableEls.value.filter((w) => w.id !== widget.id)
   if (!otherWidget.length) {
     return
   }
@@ -325,26 +342,27 @@ function setLines(source: MoveableEl, others: MoveableEl[], extra: MoveData) {
   horizontalLinesStyle.value = objToArr<LineInfo, HorizontalLine>(h, (line) => {
     return {
       top: line.top! + 'px',
-      display: 'block'
+      display: 'block',
     }
   })
   verticalLinesStyle.value = objToArr<LineInfo, VerticalLine>(v, (line) => {
     return {
       left: line.left! + 'px',
-      display: 'block'
+      display: 'block',
     }
   })
 
-  return [lineHelper.getMinOffsetSourcePos(h, extra.deltaY), lineHelper.getMinOffsetSourcePos(v, extra.deltaX)]
+  return [
+    lineHelper.getMinOffsetSourcePos(h, extra.deltaY),
+    lineHelper.getMinOffsetSourcePos(v, extra.deltaX),
+  ]
 }
 
 function handleMoveableElMoveEnd(mEl: MoveableEl) {
   mEl.wrapperElRectCache = mEl.wrapperEl!.getBoundingClientRect()
-  horizontalLinesStyle.value.forEach(line => line.display = 'none')
-  verticalLinesStyle.value.forEach(line => line.display = 'none')
+  horizontalLinesStyle.value.forEach((line) => (line.display = 'none'))
+  verticalLinesStyle.value.forEach((line) => (line.display = 'none'))
 }
-
-
 </script>
 
 <style>
